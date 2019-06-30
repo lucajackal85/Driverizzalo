@@ -1,0 +1,20 @@
+{
+    "name": "jackal/driverizzalo",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Luca",
+            "email": "luca.giacalone@edimotive.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Jackal\\Driverizzalo\\": "src/"
+        }
+    },
+    "require": {
+        "google/apiclient": "^2.2",
+        "symfony/console": "^4.3"
+    },
+    "description": ""
+}
