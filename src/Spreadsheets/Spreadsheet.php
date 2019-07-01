@@ -6,11 +6,16 @@ namespace Jackal\Driverizzalo\Spreadsheets;
 
 use Google_Service_Sheets;
 use Google_Service_Sheets_BatchUpdateSpreadsheetRequest;
+use Google_Service_Sheets_CellData;
+use Google_Service_Sheets_CellFormat;
 use Google_Service_Sheets_ClearValuesRequest;
+use Google_Service_Sheets_GridRange;
+use Google_Service_Sheets_RepeatCellRequest;
 use Google_Service_Sheets_Request;
 use Google_Service_Sheets_Sheet;
 use Google_Service_Sheets_Spreadsheet;
 use Google_Service_Sheets_SpreadsheetProperties;
+use Google_Service_Sheets_TextFormat;
 use Google_Service_Sheets_ValueRange;
 use Jackal\Driverizzalo\Model\Credentials;
 
@@ -156,12 +161,48 @@ class Spreadsheet extends BaseSpreadsheet
             'values' => $values,
         ]);
 
-        $this->getService()->spreadsheets_values->update($this->spreadsheet->getSpreadsheetId(), $range, $requestBody,
-            ['valueInputOption' => 'RAW']
-        );
+        $this->writeRequests[] = [
+            'range' => $range,
+            'request_body' => $requestBody
+        ];
 
         return $this;
 
+    }
+
+    public function backgroundRow($red,$green,$blue,$row =1,$column = 'A',$sheetName){
+        $sheetName = $sheetName == null ? $this->currentSheet : $sheetName;
+
+        $this->assertIsValidColumn($column);
+        $this->assertSheetExists($sheetName);
+
+        $myRange = [
+            'sheetId' => $this->getSheetByName($sheetName)->getSheetId(),
+            'startRowIndex' => ($row -1),
+            'endRowIndex' => $row,
+            'startColumnIndex' => $this->getColumnIndex($column) - 1,
+        ];
+
+        $format = [
+            "backgroundColor" => [
+                "red" =>  $red / 255,
+                "green" =>  $green / 255,
+                "blue" =>  $blue / 255,
+                "alpha" =>  1,
+            ],
+        ];
+
+        $this->update([
+            new \Google_Service_Sheets_Request([
+                'repeatCell' => [
+                    'fields' => 'userEnteredFormat.backgroundColor',
+                    'range' => $myRange,
+                    'cell' => [
+                        'userEnteredFormat' => $format,
+                    ],
+                ],
+            ])
+        ]);
     }
 
 

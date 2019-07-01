@@ -16,6 +16,10 @@ abstract class BaseSpreadsheet
     protected $spreadsheet;
     protected $currentSheet;
 
+    protected $requests = [];
+    protected $writeRequests = [];
+    protected $columns = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+
     protected function getClient(){
         if(!$this->client){
             $this->client = (new Client($this->credentials))->getClient();
@@ -29,14 +33,34 @@ abstract class BaseSpreadsheet
     }
 
     protected function update(array $requests){
+        $this->requests = array_merge($requests,$this->requests);
+    }
 
-        $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
-            'requests' => $requests
-        ]);
+    public function flush(){
 
-        $update = $this->getService()->spreadsheets->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $batchUpdateRequest);
-        $this->spreadsheet = $this->getService()->spreadsheets->get($this->spreadsheet->getSpreadsheetId());
-        return $update;
+        try {
+            if($this->requests != []) {
+                $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+                    'requests' => $this->requests
+                ]);
+
+
+                $update = $this->getService()->spreadsheets->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $batchUpdateRequest);
+                $this->spreadsheet = $this->getService()->spreadsheets->get($this->spreadsheet->getSpreadsheetId());
+                $this->requests = [];
+            }
+
+            foreach ($this->writeRequests as $writeRequest) {
+                usleep(1500 * 1000);
+                $this->getService()->spreadsheets_values->update($this->spreadsheet->getSpreadsheetId(), $writeRequest['range'], $writeRequest['request_body'],
+                    ['valueInputOption' => 'RAW']
+                );
+            }
+            $this->writeRequests = [];
+        }catch (\Exception $e){
+            $this->requests = [];
+            throw $e;
+        }
     }
 
 
@@ -67,11 +91,18 @@ abstract class BaseSpreadsheet
     }
 
     protected function assertIsValidColumn($column){
-        $columns = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
         foreach (str_split($column) as $columnName){
-            if(!in_array($columnName,$columns)){
+            if(!in_array($columnName,$this->columns)){
                 throw new \Exception(sprintf('Column name "%s" not valid',$column));
             }
         }
+    }
+
+    protected function getColumnIndex($column){
+        $offsetColumns = (strlen($column) - 1) * count($this->columns);
+        $lastValue = substr($column,-1);
+        $index = (array_flip($this->columns)[$lastValue]) + 1;
+        return $index + $offsetColumns;
+        //exit;
     }
 }

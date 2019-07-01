@@ -16,6 +16,10 @@ class Driverizzalo
         $this->credentials = $credetials;
     }
 
+    /**
+     * @param $documentName
+     * @return Spreadsheet
+     */
     public function createSpreadsheet($documentName){
 
         $s = new Spreadsheet($this->credentials);
