@@ -17,10 +17,15 @@ use Google_Service_Sheets_Spreadsheet;
 use Google_Service_Sheets_SpreadsheetProperties;
 use Google_Service_Sheets_TextFormat;
 use Google_Service_Sheets_ValueRange;
+use Google_Service_Sheets_BatchUpdateValuesRequest;
 use Jackal\Driverizzalo\Model\Credentials;
+use Jackal\Driverizzalo\ValueInputOption;
+use Jackal\Driverizzalo\Model\Color;
+
 
 class Spreadsheet extends BaseSpreadsheet
 {
+    
     public function __construct(Credentials $credentials)
     {
         $this->credentials = $credentials;
@@ -53,32 +58,44 @@ class Spreadsheet extends BaseSpreadsheet
     }
 
     public function setTitle($title){
-        return $this->update([
-            new Google_Service_Sheets_Request([
+
+            $request = new Google_Service_Sheets_Request([
                 'updateSpreadsheetProperties' => [
                     'properties' => [
                         'title' => $title
                     ],
                     'fields' => 'title'
                 ]
-            ]),
+            ]);
+
+        $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+            'requests' => [$request]
         ]);
+        $batchUpdateResponse = $this->getService()->spreadsheets->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $batchUpdateRequest);
+        $this->spreadsheet = $this->getService()->spreadsheets->get($this->spreadsheet->getSpreadsheetId());
+
+        return $this;
     }
 
     public function addSheet($name){
 
-        $response = $this->update([
-            new Google_Service_Sheets_Request([
+        if($this->getSheetByName($name) == null) {
+            $request = new Google_Service_Sheets_Request([
                 'addSheet' => [
                     'properties' => [
                         'title' => $name
                     ],
                 ]
-            ])
-        ]);
+            ]);
+
+            $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+                'requests' => [$request]
+            ]);
+            $batchUpdateResponse = $this->getService()->spreadsheets->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $batchUpdateRequest);
+            $this->spreadsheet = $this->getService()->spreadsheets->get($this->spreadsheet->getSpreadsheetId());
+        }
 
         $this->currentSheet = $name;
-
         return $this;
     }
 
@@ -149,28 +166,35 @@ class Spreadsheet extends BaseSpreadsheet
      */
     public function write(array $values,$row = 1,$column = 'A',$sheetName = null){
 
+        $values = array_values($values);
+        if(!is_array($values[0])){
+            $values = [$values];
+        }
+        
         $sheetName = $sheetName == null ? $this->currentSheet : $sheetName;
 
         $this->assertIsValidColumn($column);
 
         $this->assertSheetExists($sheetName);
         $range = $sheetName.'!'.$column.$row;
-
-        $requestBody = new Google_Service_Sheets_ValueRange();
-        $requestBody->setValues([
-            'values' => $values,
+        
+        $data[] = new Google_Service_Sheets_ValueRange([
+            'range' => $range,
+            'values' => $values
         ]);
 
-        $this->writeRequests[] = [
-            'range' => $range,
-            'request_body' => $requestBody
-        ];
+        $body = new Google_Service_Sheets_BatchUpdateValuesRequest([
+            'valueInputOption' => ValueInputOption::RAW,
+            'data' => $data
+        ]);
 
+        $this->getService()->spreadsheets_values->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $body);
         return $this;
 
     }
-
-    public function backgroundRow($red,$green,$blue,$row =1,$column = 'A',$sheetName){
+   
+    public function backgroundRow($hexColor,$row =1,$column = 'A',$sheetName = null){
+        $color = new Color($hexColor);
         $sheetName = $sheetName == null ? $this->currentSheet : $sheetName;
 
         $this->assertIsValidColumn($column);
@@ -185,14 +209,14 @@ class Spreadsheet extends BaseSpreadsheet
 
         $format = [
             "backgroundColor" => [
-                "red" =>  $red / 255,
-                "green" =>  $green / 255,
-                "blue" =>  $blue / 255,
+                "red" =>  $color->red() / 255,
+                "green" =>  $color->green() / 255,
+                "blue" =>  $color->blue() / 255,
                 "alpha" =>  1,
             ],
         ];
 
-        $this->update([
+        $requests = [
             new \Google_Service_Sheets_Request([
                 'repeatCell' => [
                     'fields' => 'userEnteredFormat.backgroundColor',
@@ -202,7 +226,16 @@ class Spreadsheet extends BaseSpreadsheet
                     ],
                 ],
             ])
+        ];
+
+        $batchUpdateRequest = new \Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+            'requests' => $requests
         ]);
+
+        $response = $this->getService()->spreadsheets->batchUpdate(
+            $this->getSpreadsheet()->getSpreadsheetId(),
+            $batchUpdateRequest
+        );
     }
 
 
