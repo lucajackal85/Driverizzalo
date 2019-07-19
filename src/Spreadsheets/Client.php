@@ -17,7 +17,7 @@ class Client
         $client = new Google_Client();
         $client->setApplicationName('Google Drive API PHP Quickstart');
         $client->setScopes([\Google_Service_Sheets::DRIVE_FILE]);
-        $client->setAuthConfig($credentials->getClientSecret()->getFilename());
+        $client->setAuthConfig($credentials->getClientSecret()->getPathname());
         $client->setAccessType('offline');
         $client->setPrompt('select_account consent');
 
@@ -25,7 +25,7 @@ class Client
         // The file token.json stores the user's access and refresh tokens, and is
         // created automatically when the authorization flow completes for the first
         // time.
-        $tokenPath = $credentials->getOauth2()->getFilename();
+        $tokenPath = $credentials->getOauth2()->getPathname();
         if (file_exists($tokenPath)) {
             $accessToken = json_decode(file_get_contents($tokenPath), true);
             $client->setAccessToken($accessToken);
