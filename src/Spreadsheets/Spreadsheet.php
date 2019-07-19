@@ -18,6 +18,7 @@ use Google_Service_Sheets_SpreadsheetProperties;
 use Google_Service_Sheets_TextFormat;
 use Google_Service_Sheets_ValueRange;
 use Google_Service_Sheets_BatchUpdateValuesRequest;
+use Google_Service_Drive_Permission;
 use Jackal\Driverizzalo\Model\Credentials;
 use Jackal\Driverizzalo\ValueInputOption;
 use Jackal\Driverizzalo\Model\Color;
@@ -83,7 +84,7 @@ class Spreadsheet extends BaseSpreadsheet
             $request = new Google_Service_Sheets_Request([
                 'addSheet' => [
                     'properties' => [
-                        'title' => $name
+                        'title' => $name,
                     ],
                 ]
             ]);
@@ -119,13 +120,20 @@ class Spreadsheet extends BaseSpreadsheet
     public function removeSheet($name){
         $this->assertSheetExists($name);
 
-        return $this->update([
-            new Google_Service_Sheets_Request([
-                'deleteSheet' => [
-                    'sheetId' => $this->getSheetByName($name)->getSheetId(),
-                ]
-            ])
+        $request = new Google_Service_Sheets_Request([
+            'deleteSheet' => [
+                'sheetId' => $this->getSheetByName($name)->getSheetId(),
+            ]
         ]);
+
+        $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+            'requests' => [$request]
+        ]);
+        $batchUpdateResponse = $this->getService()->spreadsheets->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $batchUpdateRequest);
+        $this->spreadsheet = $this->getService()->spreadsheets->get($this->spreadsheet->getSpreadsheetId());
+
+
+        return $this;
     }
 
     public function clearSheet($name){
@@ -177,7 +185,7 @@ class Spreadsheet extends BaseSpreadsheet
 
         $this->assertSheetExists($sheetName);
         $range = $sheetName.'!'.$column.$row;
-        
+
         $data[] = new Google_Service_Sheets_ValueRange([
             'range' => $range,
             'values' => $values
