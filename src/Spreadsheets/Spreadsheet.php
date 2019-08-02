@@ -208,12 +208,10 @@ class Spreadsheet extends BaseSpreadsheet
         try {
             $tried++;
             $this->getService()->spreadsheets_values->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $body);
-            echo 'write!'."\n";
         }catch (Google_Service_Exception $e){
             if(!stripos($e->getMessage(),'Quota exceeded') or $tried > $attempts) {
                 throw $e;
             }
-            echo 'waiting for ...'.$this->getTimeToWait($tried)."\n";
             sleep($this->getTimeToWait($tried));
             $this->internalWrite($body,$attempts,$tried);
         }
