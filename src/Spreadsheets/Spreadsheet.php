@@ -4,6 +4,7 @@
 namespace Jackal\Driverizzalo\Spreadsheets;
 
 
+use Google_Service_Exception;
 use Google_Service_Sheets;
 use Google_Service_Sheets_BatchUpdateSpreadsheetRequest;
 use Google_Service_Sheets_CellData;
@@ -196,9 +197,32 @@ class Spreadsheet extends BaseSpreadsheet
             'data' => $data
         ]);
 
-        $this->getService()->spreadsheets_values->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $body);
+        $this->internalWrite($body);
+
         return $this;
 
+    }
+
+    protected function internalWrite(Google_Service_Sheets_BatchUpdateValuesRequest $body,$attempts = 4,$tried = 0){
+
+        try {
+            $tried++;
+            $this->getService()->spreadsheets_values->batchUpdate($this->getSpreadsheet()->getSpreadsheetId(), $body);
+            echo 'write!'."\n";
+        }catch (Google_Service_Exception $e){
+            if(!stripos($e->getMessage(),'Quota exceeded') or $tried > $attempts) {
+                throw $e;
+            }
+            echo 'waiting for ...'.$this->getTimeToWait($tried)."\n";
+            sleep($this->getTimeToWait($tried));
+            $this->internalWrite($body,$attempts,$tried);
+        }
+    }
+
+    protected function getTimeToWait($tried){
+        $secondsToWait = 5;
+
+        return pow($secondsToWait,$tried);
     }
    
     public function backgroundRow($hexColor,$row =1,$column = 'A',$sheetName = null){
